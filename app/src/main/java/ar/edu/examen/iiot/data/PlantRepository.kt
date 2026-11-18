@@ -2,11 +2,22 @@ package ar.edu.examen.iiot.data
 
 import android.content.Context
 import ar.edu.examen.iiot.model.Reading
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class PlantRepository(private val context: Context) {
-    private val database = PlantDatabase(context)
+/**
+ * Toda operación de disco o red corre en [ioDispatcher] (por defecto Dispatchers.IO),
+ * así el hilo principal nunca espera a SQLite. Solo se guarda el applicationContext
+ * para no retener una Activity destruida.
+ */
+class PlantRepository(
+    context: Context,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) {
+    private val database = PlantDatabase(context.applicationContext)
     private val api = Retrofit.Builder()
         .baseUrl("https://api.thingspeak.com/")
         .addConverterFactory(GsonConverterFactory.create())
@@ -16,17 +27,18 @@ class PlantRepository(private val context: Context) {
     var lastSyncMessage: String = "Datos locales"
         private set
 
-    fun localReadings(): List<Reading> {
+    suspend fun localReadings(): List<Reading> = withContext(ioDispatcher) {
         val rows = database.latest()
-        if (rows.isNotEmpty()) return rows
-        sampleReadings(null, null, false).forEach(database::insert)
-        return database.latest()
+        if (rows.isNotEmpty()) return@withContext rows
+        database.insertAll(sampleReadings(null, null, false))
+        database.latest()
     }
 
-    fun search(query: String): List<Reading> =
+    suspend fun search(query: String): List<Reading> = withContext(ioDispatcher) {
         if (query.isBlank()) database.latest() else database.findLatestByName(query)
+    }
 
-    suspend fun sync(): List<Reading> {
+    suspend fun sync(): List<Reading> = withContext(ioDispatcher) {
         var remoteTemperature: Double? = null
         var remoteHumidity: Double? = null
         var remoteOk = false
@@ -47,8 +59,8 @@ class PlantRepository(private val context: Context) {
             lastSyncMessage = "Sin conexión a API: usando datos simulados"
         }
 
-        sampleReadings(remoteTemperature, remoteHumidity, remoteOk).forEach(database::insert)
-        return database.latest()
+        database.insertAll(sampleReadings(remoteTemperature, remoteHumidity, remoteOk))
+        database.latest()
     }
 
     private fun sampleReadings(

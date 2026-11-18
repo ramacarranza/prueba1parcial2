@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import ar.edu.examen.iiot.model.PlantRules
 import ar.edu.examen.iiot.model.Reading
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -104,7 +105,7 @@ fun DashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(state.readings, key = { it.machineId }) { reading ->
-                    EquipmentCard(reading, onHistoryClick)
+                    EquipmentCard(reading, state.threshold, onHistoryClick)
                 }
                 item {
                     Text(
@@ -122,8 +123,12 @@ fun DashboardScreen(
 }
 
 @Composable
-private fun EquipmentCard(reading: Reading, onHistoryClick: (String) -> Unit) {
-    val alert = reading.temperature >= 65.0
+private fun EquipmentCard(
+    reading: Reading,
+    threshold: Double,
+    onHistoryClick: (String) -> Unit
+) {
+    val alert = PlantRules.requiresAttention(reading, threshold)
     val time = SimpleDateFormat("dd/MM HH:mm", Locale("es", "AR"))
         .format(Date(reading.timestamp))
     Card(

@@ -26,7 +26,8 @@ class MainActivity : ComponentActivity(), SensorEventListener {
     private var movement: Float? = null
 
     private val viewModel: PlantViewModel by viewModels {
-        PlantViewModel.Factory(PlantRepository(this))
+        // applicationContext: el ViewModel sobrevive a la rotación y no debe retener la Activity.
+        PlantViewModel.Factory(PlantRepository(applicationContext))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

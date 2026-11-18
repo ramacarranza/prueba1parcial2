@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import ar.edu.examen.iiot.data.PlantRepository
 import ar.edu.examen.iiot.model.PlantRules
 import ar.edu.examen.iiot.model.Reading
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,16 +27,24 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     private val _state = MutableStateFlow(DashboardState())
     val state: StateFlow<DashboardState> = _state.asStateFlow()
 
+    /** Búsqueda en curso: se cancela si el usuario sigue escribiendo. */
+    private var searchJob: Job? = null
+
     init {
-        val data = repository.localReadings()
-        setReadings(data)
+        viewModelScope.launch {
+            try {
+                setReadings(repository.localReadings())
+            } catch (exception: Exception) {
+                _state.update { it.copy(notification = "No se pudieron leer los datos locales") }
+            }
+        }
     }
 
     private fun setReadings(items: List<Reading>) {
         _state.update { current ->
             current.copy(
                 readings = items,
-                alertCount = items.count { it.temperature >= 65.0 }
+                alertCount = PlantRules.countAlerts(items, current.threshold)
             )
         }
     }
@@ -59,11 +68,14 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
 
     fun filter(text: String) {
         _state.update { it.copy(filter = text) }
-        try {
-            setReadings(repository.search(text))
-        } catch (exception: Exception) {
-            _state.update {
-                it.copy(notification = "La búsqueda no se pudo completar")
+        searchJob?.cancel()
+        searchJob = viewModelScope.launch {
+            try {
+                setReadings(repository.search(text))
+            } catch (exception: Exception) {
+                _state.update {
+                    it.copy(notification = "La búsqueda no se pudo completar")
+                }
             }
         }
     }
