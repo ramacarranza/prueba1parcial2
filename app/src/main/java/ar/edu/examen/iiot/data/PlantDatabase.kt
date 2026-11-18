@@ -75,6 +75,18 @@ class PlantDatabase(context: Context) :
         return readableDatabase.rawQuery(sql, arrayOf(pattern)).use(::readAll)
     }
 
+    /** Últimas [limit] lecturas de un equipo, de la más reciente a la más antigua. */
+    fun history(machineId: String, limit: Int): List<Reading> =
+        readableDatabase.rawQuery(
+            """SELECT id, machine_id, machine_name, temperature, humidity, vibration,
+                      captured_at, source
+               FROM readings
+               WHERE machine_id = ?
+               ORDER BY captured_at DESC, id DESC
+               LIMIT ?""",
+            arrayOf(machineId, limit.toString())
+        ).use(::readAll)
+
     fun readConfig(key: String): String? =
         readableDatabase.rawQuery(
             "SELECT config_value FROM configuration WHERE config_key = ?",

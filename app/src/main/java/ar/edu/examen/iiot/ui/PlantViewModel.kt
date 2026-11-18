@@ -23,7 +23,17 @@ data class DashboardState(
     val threshold: Double = PlantRules.DEFAULT_TEMPERATURE_LIMIT,
     val alertCount: Int = 0,
     val thresholdDialogOpen: Boolean = false,
-    val thresholdError: String? = null
+    val thresholdError: String? = null,
+    val history: HistoryState? = null
+)
+
+/** Historial abierto de un equipo; null en DashboardState significa cerrado. */
+data class HistoryState(
+    val machineId: String,
+    val machineName: String,
+    val loading: Boolean = true,
+    val readings: List<Reading> = emptyList(),
+    val error: String? = null
 )
 
 class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
@@ -119,9 +129,23 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     }
 
     fun showHistory(machineId: String) {
-        _state.update {
-            it.copy(notification = "Historial de $machineId: función pendiente")
+        val name = _state.value.readings.firstOrNull { it.machineId == machineId }
+            ?.machineName ?: machineId
+        _state.update { it.copy(history = HistoryState(machineId, name)) }
+        viewModelScope.launch {
+            val loaded = try {
+                HistoryState(machineId, name, loading = false, readings = repository.history(machineId))
+            } catch (exception: Exception) {
+                HistoryState(machineId, name, loading = false, error = "No se pudo leer el historial")
+            }
+            // Solo se aplica si el usuario no cerró o cambió de equipo mientras cargaba.
+            _state.update { if (it.history?.machineId == machineId) it.copy(history = loaded) else it }
         }
+    }
+
+    /** Cierra el historial; filter y readings no se tocan, así la búsqueda se conserva. */
+    fun closeHistory() {
+        _state.update { it.copy(history = null) }
     }
 
     fun dismissNotification() {

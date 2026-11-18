@@ -4,7 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -46,9 +49,13 @@ fun DashboardScreen(
     onThresholdSave: (String) -> Unit,
     onThresholdDismiss: () -> Unit,
     onHistoryClick: (String) -> Unit,
+    onHistoryClose: () -> Unit,
     onDismissNotification: () -> Unit
 ) {
     MaterialTheme {
+        state.history?.let { history ->
+            HistoryDialog(history, state.threshold, onHistoryClose)
+        }
         if (state.thresholdDialogOpen) {
             ThresholdDialog(
                 current = state.threshold,
@@ -177,6 +184,59 @@ private fun ThresholdDialog(
         confirmButton = { Button(onClick = { onSave(text) }) { Text("Guardar") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
     )
+}
+
+@Composable
+private fun HistoryDialog(history: HistoryState, threshold: Double, onClose: () -> Unit) {
+    val formatter = remember { SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale("es", "AR")) }
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Historial · ${history.machineName} (${history.machineId})") },
+        text = {
+            when {
+                history.loading -> Text("Cargando lecturas...")
+                history.error != null -> Text(history.error, color = Color(0xFFB3261E))
+                history.readings.isEmpty() -> Text(
+                    "Este equipo todavía no tiene lecturas guardadas. " +
+                        "Tocá \"Sincronizar telemetría\" para registrar una."
+                )
+                else -> LazyColumn(
+                    modifier = Modifier.heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    item {
+                        Text(
+                            "Últimas ${history.readings.size} lecturas (más reciente primero)",
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                    items(history.readings, key = { it.id }) { reading ->
+                        HistoryRow(reading, formatter, PlantRules.requiresAttention(reading, threshold))
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onClose) { Text("Cerrar") } }
+    )
+}
+
+@Composable
+private fun HistoryRow(reading: Reading, formatter: SimpleDateFormat, alert: Boolean) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(formatter.format(Date(reading.timestamp)), style = MaterialTheme.typography.bodySmall)
+            Text(
+                "${"%.1f".format(reading.temperature)} °C",
+                fontWeight = FontWeight.SemiBold,
+                color = if (alert) Color(0xFFB3261E) else Color.Unspecified
+            )
+        }
+        Text(reading.source, style = MaterialTheme.typography.labelSmall, color = Color(0xFF64748B))
+        HorizontalDivider(modifier = Modifier.padding(top = 6.dp))
+    }
 }
 
 @Composable

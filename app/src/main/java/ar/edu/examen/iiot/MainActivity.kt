@@ -51,6 +51,7 @@ class MainActivity : ComponentActivity(), SensorEventListener {
                 onThresholdSave = viewModel::saveThreshold,
                 onThresholdDismiss = viewModel::closeThresholdDialog,
                 onHistoryClick = viewModel::showHistory,
+                onHistoryClose = viewModel::closeHistory,
                 onDismissNotification = viewModel::dismissNotification
             )
         }

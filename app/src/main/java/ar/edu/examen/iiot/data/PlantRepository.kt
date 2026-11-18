@@ -47,6 +47,10 @@ class PlantRepository(
         database.writeConfig(KEY_THRESHOLD, value.toString())
     }
 
+    suspend fun history(machineId: String): List<Reading> = withContext(ioDispatcher) {
+        database.history(machineId, HISTORY_SIZE)
+    }
+
     suspend fun search(query: String): List<Reading> = withContext(ioDispatcher) {
         if (query.isBlank()) database.latest() else database.findLatestByName(query)
     }
@@ -116,5 +120,6 @@ class PlantRepository(
 
     private companion object {
         const val KEY_THRESHOLD = "temperature_threshold"
+        const val HISTORY_SIZE = 10
     }
 }
