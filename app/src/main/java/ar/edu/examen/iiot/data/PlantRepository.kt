@@ -1,6 +1,7 @@
 package ar.edu.examen.iiot.data
 
 import android.content.Context
+import ar.edu.examen.iiot.model.PlantRules
 import ar.edu.examen.iiot.model.Reading
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -32,6 +33,18 @@ class PlantRepository(
         if (rows.isNotEmpty()) return@withContext rows
         database.insertAll(sampleReadings(null, null, false))
         database.latest()
+    }
+
+    /** Umbral guardado; en una instalación nueva (o si el valor guardado es inválido) es 65 °C. */
+    suspend fun loadThreshold(): Double = withContext(ioDispatcher) {
+        database.readConfig(KEY_THRESHOLD)?.toDoubleOrNull()
+            ?.takeIf(PlantRules::isValidThreshold)
+            ?: PlantRules.DEFAULT_TEMPERATURE_LIMIT
+    }
+
+    suspend fun saveThreshold(value: Double) = withContext(ioDispatcher) {
+        require(PlantRules.isValidThreshold(value)) { "Umbral fuera de rango: $value" }
+        database.writeConfig(KEY_THRESHOLD, value.toString())
     }
 
     suspend fun search(query: String): List<Reading> = withContext(ioDispatcher) {
@@ -99,5 +112,9 @@ class PlantRepository(
                 source = "Simulación local"
             )
         )
+    }
+
+    private companion object {
+        const val KEY_THRESHOLD = "temperature_threshold"
     }
 }

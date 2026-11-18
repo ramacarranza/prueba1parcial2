@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import ar.edu.examen.iiot.data.PlantRepository
 import ar.edu.examen.iiot.model.PlantRules
 import ar.edu.examen.iiot.model.Reading
+import ar.edu.examen.iiot.model.ThresholdValidation
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +21,9 @@ data class DashboardState(
     val syncMessage: String = "Lecturas locales",
     val notification: String? = null,
     val threshold: Double = PlantRules.DEFAULT_TEMPERATURE_LIMIT,
-    val alertCount: Int = 0
+    val alertCount: Int = 0,
+    val thresholdDialogOpen: Boolean = false,
+    val thresholdError: String? = null
 )
 
 class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
@@ -33,6 +36,9 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
     init {
         viewModelScope.launch {
             try {
+                // Primero el umbral guardado, para que el primer cálculo de alertas ya lo use.
+                val threshold = repository.loadThreshold()
+                _state.update { it.copy(threshold = threshold) }
                 setReadings(repository.localReadings())
             } catch (exception: Exception) {
                 _state.update { it.copy(notification = "No se pudieron leer los datos locales") }
@@ -80,9 +86,35 @@ class PlantViewModel(private val repository: PlantRepository) : ViewModel() {
         }
     }
 
-    fun configureThreshold() {
-        _state.update {
-            it.copy(notification = "Configuración de umbral: función pendiente")
+    fun openThresholdDialog() {
+        _state.update { it.copy(thresholdDialogOpen = true, thresholdError = null) }
+    }
+
+    fun closeThresholdDialog() {
+        _state.update { it.copy(thresholdDialogOpen = false, thresholdError = null) }
+    }
+
+    fun saveThreshold(input: String) {
+        when (val result = PlantRules.validateThreshold(input)) {
+            is ThresholdValidation.Invalid ->
+                _state.update { it.copy(thresholdError = result.message) }
+
+            is ThresholdValidation.Valid -> viewModelScope.launch {
+                try {
+                    repository.saveThreshold(result.value)
+                    // Recalcula NORMAL/ALERTA y el contador con las lecturas ya cargadas: sin sincronizar.
+                    _state.update {
+                        it.copy(
+                            threshold = result.value,
+                            alertCount = PlantRules.countAlerts(it.readings, result.value),
+                            thresholdDialogOpen = false,
+                            thresholdError = null
+                        )
+                    }
+                } catch (exception: Exception) {
+                    _state.update { it.copy(thresholdError = "No se pudo guardar el umbral") }
+                }
+            }
         }
     }
 

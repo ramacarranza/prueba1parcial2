@@ -47,7 +47,9 @@ class MainActivity : ComponentActivity(), SensorEventListener {
             DashboardScreen(
                 state = state,
                 onFilterChanged = viewModel::filter,
-                onThresholdClick = viewModel::configureThreshold,
+                onThresholdClick = viewModel::openThresholdDialog,
+                onThresholdSave = viewModel::saveThreshold,
+                onThresholdDismiss = viewModel::closeThresholdDialog,
                 onHistoryClick = viewModel::showHistory,
                 onDismissNotification = viewModel::dismissNotification
             )

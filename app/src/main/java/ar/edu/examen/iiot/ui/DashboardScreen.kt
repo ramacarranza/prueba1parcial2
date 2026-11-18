@@ -1,6 +1,14 @@
 package ar.edu.examen.iiot.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -35,10 +43,20 @@ fun DashboardScreen(
     state: DashboardState,
     onFilterChanged: (String) -> Unit,
     onThresholdClick: () -> Unit,
+    onThresholdSave: (String) -> Unit,
+    onThresholdDismiss: () -> Unit,
     onHistoryClick: (String) -> Unit,
     onDismissNotification: () -> Unit
 ) {
     MaterialTheme {
+        if (state.thresholdDialogOpen) {
+            ThresholdDialog(
+                current = state.threshold,
+                error = state.thresholdError,
+                onSave = onThresholdSave,
+                onDismiss = onThresholdDismiss
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -73,7 +91,7 @@ fun DashboardScreen(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 OutlinedButton(onClick = onThresholdClick) {
-                    Text("Umbral: ${state.threshold.toInt()} °C")
+                    Text("Umbral: ${formatThreshold(state.threshold)} °C")
                 }
                 if (state.loading) {
                     Text("Sincronizando...", modifier = Modifier.padding(top = 12.dp))
@@ -120,6 +138,45 @@ fun DashboardScreen(
             }
         }
     }
+}
+
+private fun formatThreshold(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else "%.1f".format(value)
+
+@Composable
+private fun ThresholdDialog(
+    current: Double,
+    error: String?,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var text by rememberSaveable { mutableStateOf(formatThreshold(current)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Umbral de alarma") },
+        text = {
+            Column {
+                Text(
+                    "Temperatura (°C) a partir de la cual un equipo pasa a ALERTA. " +
+                        "Rango permitido: ${PlantRules.MIN_THRESHOLD.toInt()} a " +
+                        "${PlantRules.MAX_THRESHOLD.toInt()} °C.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    label = { Text("Umbral °C") },
+                    singleLine = true,
+                    isError = error != null,
+                    supportingText = { if (error != null) Text(error) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+            }
+        },
+        confirmButton = { Button(onClick = { onSave(text) }) { Text("Guardar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+    )
 }
 
 @Composable

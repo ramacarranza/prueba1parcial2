@@ -75,6 +75,23 @@ class PlantDatabase(context: Context) :
         return readableDatabase.rawQuery(sql, arrayOf(pattern)).use(::readAll)
     }
 
+    fun readConfig(key: String): String? =
+        readableDatabase.rawQuery(
+            "SELECT config_value FROM configuration WHERE config_key = ?",
+            arrayOf(key)
+        ).use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+
+    /** INSERT OR REPLACE sobre la clave primaria: crea o actualiza el valor. */
+    fun writeConfig(key: String, value: String) {
+        val values = ContentValues().apply {
+            put("config_key", key)
+            put("config_value", value)
+        }
+        writableDatabase.insertWithOnConflict(
+            "configuration", null, values, SQLiteDatabase.CONFLICT_REPLACE
+        )
+    }
+
     private fun escapeLike(text: String): String =
         text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
