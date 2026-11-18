@@ -1,6 +1,6 @@
 # Cambios realizados
 
-Se conservó la base del docente: MVVM, Retrofit (ThingSpeak), SQLite (`SQLiteOpenHelper`),
+Se conservó la base del proyecto entregado: MVVM, Retrofit (ThingSpeak), SQLite (`SQLiteOpenHelper`),
 sensores del teléfono (luz y acelerómetro) y la convivencia XML (encabezado, botón de
 sincronización, sensores) con Compose (panel). No se cambiaron versiones de Gradle ni del
 plugin de Android, ni el esquema de la base (sigue en versión 1).
@@ -85,12 +85,6 @@ actividad 2 → tests → este documento.
   alertas con umbrales de 65, 50 y 100. Es la lógica que actualiza el contador al guardar.
 - Validación: 30 y 120 son válidos; 29.9, 120.1, -40, "abc" y "" se rechazan con mensaje;
   " 70,5 " se acepta como 70.5.
-
-Cómo correrlos (Gradle 8.11.1 con JDK 17 o 21):
-
-```
-gradlew testDebugUnitTest
-```
 
 ### Prueba manual (emulador Pixel 8, API 37)
 
